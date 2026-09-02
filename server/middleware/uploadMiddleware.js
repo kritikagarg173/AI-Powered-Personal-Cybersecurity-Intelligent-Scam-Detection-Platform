@@ -2,8 +2,14 @@ const multer = require("multer");
 const path = require("path");
 const fs = require("fs");
 
-const uploadDirectory = path.join(__dirname, "..", "uploads");
+// Vercel serverless environment only allows runtime writes inside /tmp
+const isVercel = process.env.VERCEL === "1";
 
+const uploadDirectory = isVercel
+  ? path.join("/tmp", "uploads")
+  : path.join(__dirname, "..", "uploads");
+
+// Create upload directory if it doesn't exist
 if (!fs.existsSync(uploadDirectory)) {
   fs.mkdirSync(uploadDirectory, { recursive: true });
 }

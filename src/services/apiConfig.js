@@ -1,7 +1,15 @@
 import { Capacitor } from "@capacitor/core";
 
-const isAndroidApp = Capacitor.isNativePlatform();
+const isNativeApp = Capacitor.isNativePlatform();
+const isLocalhost =
+  window.location.hostname === "localhost" ||
+  window.location.hostname === "127.0.0.1";
 
-export const API_BASE_URL = isAndroidApp
-  ? "http://10.0.2.2:5000/api"
-  : "http://localhost:5000/api";
+const LIVE_API_URL =
+  "https://server-dagkxzath-kritikagarg173s-projects.vercel.app/api";
+
+export const API_BASE_URL = isNativeApp
+  ? LIVE_API_URL
+  : isLocalhost
+  ? "http://localhost:5000/api"
+  : LIVE_API_URL;

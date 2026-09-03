@@ -6,7 +6,7 @@ const isLocalhost =
   window.location.hostname === "127.0.0.1";
 
 const LIVE_API_URL =
-  "https://server-dagkxzath-kritikagarg173s-projects.vercel.app/api";
+  "https://server-beta-five-84.vercel.app/api";
 
 export const API_BASE_URL = isNativeApp
   ? LIVE_API_URL

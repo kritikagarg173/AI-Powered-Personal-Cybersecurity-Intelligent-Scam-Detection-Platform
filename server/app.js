@@ -3,7 +3,6 @@ const express = require("express");
 const cors = require("cors");
 const sosEscalationRoutes = require("./routes/sosEscalationRoutes");
 const dotenv = require("dotenv");
-
 const callMonitoringRoutes = require("./routes/callMonitoringRoutes");
 const callerVerificationRoutes = require("./routes/callerVerificationRoutes");
 const contactRoutes = require("./routes/contactRoutes");
@@ -13,72 +12,126 @@ const userRoutes = require("./routes/userRoutes");
 const authRoutes = require("./routes/authRoutes");
 const dashboardRoutes = require("./routes/dashboardRoutes");
 const notificationRoutes = require("./routes/notificationRoutes");
-const emergencyEvidenceRoutes =
-  require("./routes/emergencyEvidenceRoutes");
-
-// ==========================================
-// ELDERLY MODE ROUTES
-// ==========================================
+const emergencyEvidenceRoutes = require("./routes/emergencyEvidenceRoutes");
 const elderlyModeRoutes = require("./routes/elderlyModeRoutes");
 
 dotenv.config();
 
 const app = express();
 
-// =========================
-// MIDDLEWARE
-// =========================
+// ==========================================
+// CORS CONFIGURATION
+// ==========================================
+
+const allowedOrigins = [
+  "http://localhost:5173",
+  "http://localhost",
+  "capacitor://localhost",
+  "https://cyber-shield-mobile.vercel.app",
+];
+
+const corsOptions = {
+  origin: (origin, callback) => {
+    // Allow requests without Origin header
+    // e.g. Postman, mobile/native requests
+    if (!origin) {
+      return callback(null, true);
+    }
+
+    if (allowedOrigins.includes(origin)) {
+      return callback(null, true);
+    }
+
+    console.log("Blocked by CORS:", origin);
+
+    return callback(new Error("Not allowed by CORS"));
+  },
+
+  credentials: true,
+
+  methods: [
+    "GET",
+    "POST",
+    "PUT",
+    "PATCH",
+    "DELETE",
+    "OPTIONS",
+  ],
+
+  allowedHeaders: [
+    "Content-Type",
+    "Authorization",
+  ],
+};
+
+app.use(cors(corsOptions));
+
+// ==========================================
+// BODY PARSERS
+// ==========================================
+
+app.use(express.json());
 
 app.use(
-  cors({
-    origin: [
-      "http://localhost:5173",
-      "http://localhost",
-      "capacitor://localhost",
-    ],
-    credentials: true,
+  express.urlencoded({
+    extended: true,
   })
 );
 
-// IMPORTANT: Body parser MUST come before routes
-app.use(express.json());
-app.use(express.urlencoded({ extended: true }));
+// ==========================================
+// ROUTES
+// ==========================================
 
 app.use("/api/screenshot", screenshotRoutes);
-app.use("/api/call-monitoring", callMonitoringRoutes);
 
-
-// =========================
-// ROUTES
-// =========================
+app.use(
+  "/api/call-monitoring",
+  callMonitoringRoutes
+);
 
 app.use("/api/dashboard", dashboardRoutes);
+
 app.use("/api/contacts", contactRoutes);
-app.use("/api/security-events", securityEventRoutes);
-app.use("/api/link-scanner", linkScannerRoutes);
+
+app.use(
+  "/api/security-events",
+  securityEventRoutes
+);
+
+app.use(
+  "/api/link-scanner",
+  linkScannerRoutes
+);
+
 app.use("/api/users", userRoutes);
+
 app.use("/api/auth", authRoutes);
-app.use("/api/caller-verification", callerVerificationRoutes);
-app.use("/api/notifications", notificationRoutes);
+
+app.use(
+  "/api/caller-verification",
+  callerVerificationRoutes
+);
+
+app.use(
+  "/api/notifications",
+  notificationRoutes
+);
+
 app.use(
   "/api/sos-escalation",
   sosEscalationRoutes
 );
+
 app.use(
   "/api/emergency-evidence",
   emergencyEvidenceRoutes
 );
 
-// ==========================================
-// ELDERLY MODE
-// ==========================================
-
 app.use("/api/elderly", elderlyModeRoutes);
 
-
-// =========================
+// ==========================================
 // HEALTH CHECK
-// =========================
+// ==========================================
 
 app.get("/", (req, res) => {
   res.json({

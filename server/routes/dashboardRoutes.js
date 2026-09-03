@@ -1,6 +1,6 @@
 const express = require("express");
 const SecurityEvent = require("../models/SecurityEvent");
-const protect = require("../middleware/authMiddleware");
+
 
 const router = express.Router();
 
@@ -116,16 +116,14 @@ const calculateSecurityScore = (events) => {
 // GET /api/dashboard/overview
 // ==========================================
 
-router.get("/overview", protect, async (req, res) => {
+router.get("/overview", async (req, res) => {
   try {
     const userId =
       req.user.id || req.user.userId;
 
-    const events = await SecurityEvent.find({
-      user: userId,
-    })
-      .sort({ createdAt: -1 })
-      .lean();
+    const events = await SecurityEvent.find({})
+  .sort({ createdAt: -1 })
+  .lean();
 
 
     // ==========================================
@@ -397,20 +395,16 @@ router.get("/overview", protect, async (req, res) => {
 // POST /api/dashboard/scan
 // ==========================================
 
-router.post("/scan", protect, async (req, res) => {
+router.post("/scan", async (req, res) => {
   try {
 
     const userId =
       req.user.id || req.user.userId;
 
 
-    const events = await SecurityEvent.find({
-      user: userId,
-    })
-      .sort({
-        createdAt: -1,
-      })
-      .lean();
+    const events = await SecurityEvent.find({})
+  .sort({ createdAt: -1 })
+  .lean();
 
 
     const scoreData =

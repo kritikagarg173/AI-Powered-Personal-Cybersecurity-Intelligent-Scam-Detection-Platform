@@ -1,14 +1,12 @@
 import { API_BASE_URL } from "./apiConfig";
 
 export const getDashboardOverview = async () => {
-  const token = localStorage.getItem("token");
-
   const response = await fetch(
     `${API_BASE_URL}/dashboard/overview`,
     {
       method: "GET",
       headers: {
-        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
     }
   );
@@ -25,14 +23,12 @@ export const getDashboardOverview = async () => {
 };
 
 export const runSecurityScan = async () => {
-  const token = localStorage.getItem("token");
-
   const response = await fetch(
     `${API_BASE_URL}/dashboard/scan`,
     {
       method: "POST",
       headers: {
-        Authorization: `Bearer ${token}`,
+        "Content-Type": "application/json",
       },
     }
   );

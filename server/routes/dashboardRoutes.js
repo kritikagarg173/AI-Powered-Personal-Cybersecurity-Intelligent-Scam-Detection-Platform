@@ -118,9 +118,7 @@ const calculateSecurityScore = (events) => {
 
 router.get("/overview", async (req, res) => {
   try {
-    const userId =
-      req.user.id || req.user.userId;
-
+    
     const events = await SecurityEvent.find({})
   .sort({ createdAt: -1 })
   .lean();

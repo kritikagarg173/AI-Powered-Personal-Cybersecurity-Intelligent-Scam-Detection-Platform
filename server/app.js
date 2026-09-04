@@ -1,3 +1,4 @@
+const connectDB = require("./config/db");
 const screenshotRoutes = require("./routes/screenshotRoutes");
 const express = require("express");
 const cors = require("cors");
@@ -77,7 +78,23 @@ app.use(
     extended: true,
   })
 );
+// ==========================================
+// DATABASE CONNECTION
+// ==========================================
 
+app.use(async (req, res, next) => {
+  try {
+    await connectDB();
+    next();
+  } catch (error) {
+    console.error("Database connection error:", error.message);
+
+    return res.status(500).json({
+      success: false,
+      message: "Database connection failed",
+    });
+  }
+});
 // ==========================================
 // ROUTES
 // ==========================================

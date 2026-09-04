@@ -1,17 +1,30 @@
 const mongoose = require("mongoose");
 
+let isConnected = false;
+
 const connectDB = async () => {
   try {
-    const connection = await mongoose.connect(process.env.MONGO_URI);
+    // Reuse existing connection in serverless environment
+    if (isConnected || mongoose.connection.readyState === 1) {
+      return;
+    }
+
+    const connection = await mongoose.connect(
+      process.env.MONGO_URI
+    );
+
+    isConnected = true;
 
     console.log(
       `🍃 MongoDB connected: ${connection.connection.host}`
     );
   } catch (error) {
-    console.error("❌ MongoDB connection failed:");
-    console.error(error.message);
+    console.error(
+      "❌ MongoDB connection failed:",
+      error.message
+    );
 
-    process.exit(1);
+    throw error;
   }
 };
 

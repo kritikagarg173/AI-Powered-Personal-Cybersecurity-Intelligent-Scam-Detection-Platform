@@ -65,7 +65,7 @@ const suspiciousPatterns = [
 // POST /api/call-monitoring/analyze
 // ======================================================
 
-router.post("/analyze", protect, async (req, res) => {
+router.post("/analyze", async (req, res) => {
   try {
     const {
   transcript,

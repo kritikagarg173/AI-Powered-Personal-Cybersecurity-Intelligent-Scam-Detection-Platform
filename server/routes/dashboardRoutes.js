@@ -396,8 +396,7 @@ router.get("/overview", async (req, res) => {
 router.post("/scan", async (req, res) => {
   try {
 
-    const userId =
-      req.user.id || req.user.userId;
+    
 
 
     const events = await SecurityEvent.find({})

@@ -93,21 +93,15 @@ const [alertedGuardian, setAlertedGuardian] = useState(null);
   if (!text || !text.trim()) return;
 
   try {
-    const token = localStorage.getItem("token");
-
-    if (!token) {
-      setError("Login token not found. Please login again.");
-      return;
-    }
+    
 
     const response = await fetch(
      `${API_BASE_URL}/call-monitoring/analyze`,
       {
         method: "POST",
         headers: {
-          "Content-Type": "application/json",
-          Authorization: `Bearer ${token}`,
-        },
+  "Content-Type": "application/json",
+},
         body: JSON.stringify({
           transcript: text,
           callerOrSender: "",

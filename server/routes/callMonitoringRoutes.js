@@ -1,12 +1,12 @@
 console.log("🔥 CALL MONITORING ROUTES FILE LOADED");
+
 const Notification = require("../models/Notification");
-const protect = require("../middleware/authMiddleware");
 const express = require("express");
 const SecurityEvent = require("../models/SecurityEvent");
 const User = require("../models/User");
 const TrustedContact = require("../models/TrustedContact");
-const router = express.Router();
 
+const router = express.Router();
 
 // ======================================================
 // SUSPICIOUS CALL PATTERNS
@@ -61,6 +61,19 @@ const suspiciousPatterns = [
 ];
 
 // ======================================================
+// DEMO USER HELPER
+// No-login hackathon/demo mode
+// ======================================================
+
+const getDemoUserId = async () => {
+  const demoUser = await User.findOne()
+    .select("_id")
+    .lean();
+
+  return demoUser?._id || null;
+};
+
+// ======================================================
 // ANALYZE TRANSCRIPT
 // POST /api/call-monitoring/analyze
 // ======================================================
@@ -68,11 +81,10 @@ const suspiciousPatterns = [
 router.post("/analyze", async (req, res) => {
   try {
     const {
-  transcript,
-  callerOrSender = "",
-} = req.body;
+      transcript,
+      callerOrSender = "",
+    } = req.body;
 
-const user = req.user.id;
     // -----------------------------
     // VALIDATION
     // -----------------------------
@@ -85,15 +97,15 @@ const user = req.user.id;
     }
 
     // -----------------------------
-    // CHECK USER
+    // DEMO USER
     // -----------------------------
 
-    const existingUser = await User.findById(user);
+    const user = await getDemoUserId();
 
-    if (!existingUser) {
+    if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "No demo user found",
       });
     }
 
@@ -114,7 +126,11 @@ const user = req.user.id;
       if (matched) {
         riskScore += pattern.weight;
 
-        if (!signals.some((item) => item.label === pattern.label)) {
+        if (
+          !signals.some(
+            (item) => item.label === pattern.label
+          )
+        ) {
           signals.push({
             label: pattern.label,
             weight: pattern.weight,
@@ -131,6 +147,7 @@ const user = req.user.id;
 
     let riskLevel = "LOW";
     let status = "RESOLVED";
+
     let recommendation =
       "No immediate action required. Continue monitoring the conversation.";
 
@@ -162,7 +179,9 @@ const user = req.user.id;
       "No significant scam indicators were detected in the conversation.";
 
     if (signals.length > 0) {
-      explanation = `AI detected ${signals.length} suspicious conversation signal(s): ${signals
+      explanation = `AI detected ${
+        signals.length
+      } suspicious conversation signal(s): ${signals
         .map((signal) => signal.label)
         .join(", ")}.`;
     }
@@ -174,16 +193,19 @@ const user = req.user.id;
     const event = await SecurityEvent.create({
       user,
       type: "SCAM_CALL",
+
       title:
         riskLevel === "CRITICAL"
           ? "Critical scam call detected"
           : riskLevel === "HIGH"
           ? "High-risk call detected"
           : "Call conversation analyzed",
+
       description: explanation,
       riskScore,
       riskLevel,
       status,
+
       metadata: {
         transcript,
         callerOrSender,
@@ -192,20 +214,30 @@ const user = req.user.id;
         source: "LIVE_CALL_MONITORING",
       },
     });
-    if (riskLevel === "HIGH" || riskLevel === "CRITICAL") {
-  await Notification.create({
-    user,
-    type: "threat",
-    title:
+
+    // -----------------------------
+    // CREATE NOTIFICATION
+    // -----------------------------
+
+    if (
+      riskLevel === "HIGH" ||
       riskLevel === "CRITICAL"
-        ? "Critical scam call detected"
-        : "High-risk call detected",
-    message: explanation,
-    unread: true,
-    source: "SCAM_CALL",
-    securityEvent: event._id,
-  });
-}
+    ) {
+      await Notification.create({
+        user,
+        type: "threat",
+
+        title:
+          riskLevel === "CRITICAL"
+            ? "Critical scam call detected"
+            : "High-risk call detected",
+
+        message: explanation,
+        unread: true,
+        source: "SCAM_CALL",
+        securityEvent: event._id,
+      });
+    }
 
     // -----------------------------
     // RESPONSE
@@ -213,7 +245,8 @@ const user = req.user.id;
 
     return res.status(200).json({
       success: true,
-      message: "Call conversation analyzed successfully",
+      message:
+        "Call conversation analyzed successfully",
 
       analysis: {
         riskScore,
@@ -233,47 +266,59 @@ const user = req.user.id;
       },
     });
   } catch (error) {
-    console.error("Call monitoring error:", error);
+    console.error(
+      "Call monitoring error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
-      message: "Failed to analyze call conversation",
+      message:
+        "Failed to analyze call conversation",
       error: error.message,
     });
   }
 });
+
 // ======================================================
 // ALERT TRUSTED CONTACT
 // POST /api/call-monitoring/guardian-alert
 // ======================================================
-router.post("/guardian-alert", protect, async (req, res) => {
+
+router.post("/guardian-alert", async (req, res) => {
   try {
     const {
-  riskScore = 0,
-  riskLevel = "HIGH",
-  transcript = "",
-  callerOrSender = "",
-} = req.body;
+      riskScore = 0,
+      riskLevel = "HIGH",
+      transcript = "",
+      callerOrSender = "",
+    } = req.body;
 
-const user = req.user.id;
+    // -----------------------------
+    // DEMO USER
+    // -----------------------------
 
-    
-    const existingUser = await User.findById(user);
+    const user = await getDemoUserId();
 
-    if (!existingUser) {
+    if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "No demo user found",
       });
     }
 
-    // First try primary trusted contact
-    let contact = await TrustedContact.findOne({
-      user,
-      isPrimary: true,
-    });
+    // -----------------------------
+    // FIND TRUSTED CONTACT
+    // -----------------------------
 
-    // If no primary contact, use highest priority contact
+    let contact =
+      await TrustedContact.findOne({
+        user,
+        isPrimary: true,
+      });
+
+    // If no primary contact,
+    // use highest priority contact
     if (!contact) {
       contact = await TrustedContact.findOne({
         user,
@@ -286,19 +331,28 @@ const user = req.user.id;
     if (!contact) {
       return res.status(404).json({
         success: false,
-        message: "No trusted contact found for this user",
+        message:
+          "No trusted contact found for this user",
       });
     }
+
+    // -----------------------------
+    // CREATE EVENT
+    // -----------------------------
 
     const event = await SecurityEvent.create({
       user,
       type: "GUARDIAN_ALERT",
+
       title: "Trusted contact alerted",
+
       description:
         "A trusted contact was alerted because suspicious activity was detected during a monitored call.",
+
       riskScore,
       riskLevel,
       status: "ESCALATED",
+
       metadata: {
         transcript,
         callerOrSender,
@@ -306,25 +360,39 @@ const user = req.user.id;
         guardianId: contact._id,
         guardianName: contact.name,
         guardianPhone: contact.phone,
-        guardianRelationship: contact.relationship,
+        guardianRelationship:
+          contact.relationship,
 
         source: "LIVE_CALL_MONITORING",
         action: "GUARDIAN_ALERT",
       },
     });
+
+    // -----------------------------
+    // CREATE NOTIFICATION
+    // -----------------------------
+
     await Notification.create({
-  user,
-  type: "protection",
-  title: "Trusted contact alerted",
-  message: `${contact.name} (${contact.relationship}) was notified about the suspicious call.`,
-  unread: true,
-  source: "GUARDIAN_ALERT",
-  securityEvent: event._id,
-});
+      user,
+      type: "protection",
+      title: "Trusted contact alerted",
+
+      message: `${contact.name} (${contact.relationship}) was notified about the suspicious call.`,
+
+      unread: true,
+      source: "GUARDIAN_ALERT",
+      securityEvent: event._id,
+    });
+
+    // -----------------------------
+    // RESPONSE
+    // -----------------------------
 
     return res.status(201).json({
       success: true,
-      message: "Trusted contact alert created successfully",
+
+      message:
+        "Trusted contact alert created successfully",
 
       guardian: {
         id: contact._id,
@@ -344,11 +412,15 @@ const user = req.user.id;
       },
     });
   } catch (error) {
-    console.error("Guardian alert error:", error);
+    console.error(
+      "Guardian alert error:",
+      error
+    );
 
     return res.status(500).json({
       success: false,
-      message: "Failed to create guardian alert",
+      message:
+        "Failed to create guardian alert",
       error: error.message,
     });
   }
@@ -359,35 +431,45 @@ const user = req.user.id;
 // POST /api/call-monitoring/sos
 // ======================================================
 
-router.post("/sos", protect, async (req, res) => {
+router.post("/sos", async (req, res) => {
   try {
     const {
-  riskScore = 0,
-  riskLevel = "CRITICAL",
-  transcript = "",
-  callerOrSender = "",
-} = req.body;
+      riskScore = 0,
+      riskLevel = "CRITICAL",
+      transcript = "",
+      callerOrSender = "",
+    } = req.body;
 
-const user = req.user.id;
+    // -----------------------------
+    // DEMO USER
+    // -----------------------------
 
-    const existingUser = await User.findById(user);
+    const user = await getDemoUserId();
 
-    if (!existingUser) {
+    if (!user) {
       return res.status(404).json({
         success: false,
-        message: "User not found",
+        message: "No demo user found",
       });
     }
+
+    // -----------------------------
+    // CREATE SOS EVENT
+    // -----------------------------
 
     const event = await SecurityEvent.create({
       user,
       type: "SOS",
+
       title: "Emergency SOS activated",
+
       description:
         "Emergency SOS was activated during a monitored call.",
+
       riskScore,
       riskLevel,
       status: "ESCALATED",
+
       metadata: {
         transcript,
         callerOrSender,
@@ -395,20 +477,33 @@ const user = req.user.id;
         action: "SOS",
       },
     });
+
+    // -----------------------------
+    // CREATE NOTIFICATION
+    // -----------------------------
+
     await Notification.create({
-  user,
-  type: "threat",
-  title: "Emergency SOS activated",
-  message:
-    "Emergency SOS was activated during a monitored call.",
-  unread: true,
-  source: "SOS",
-  securityEvent: event._id,
-});
+      user,
+      type: "threat",
+      title: "Emergency SOS activated",
+
+      message:
+        "Emergency SOS was activated during a monitored call.",
+
+      unread: true,
+      source: "SOS",
+      securityEvent: event._id,
+    });
+
+    // -----------------------------
+    // RESPONSE
+    // -----------------------------
 
     return res.status(201).json({
       success: true,
-      message: "Emergency SOS event created successfully",
+      message:
+        "Emergency SOS event created successfully",
+
       event: {
         id: event._id,
         type: event.type,

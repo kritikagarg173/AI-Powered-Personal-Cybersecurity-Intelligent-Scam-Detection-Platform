@@ -316,18 +316,11 @@ const [alertedGuardian, setAlertedGuardian] = useState(null);
     }, 300);
   };
 
-  const activateSOS = async () => {
+ const activateSOS = async () => {
   try {
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
     }
-
-    const token = localStorage.getItem("token");
-
-if (!token) {
-  setError("Login token not found. Please login again.");
-  return;
-}
 
     setStatus("Activating emergency SOS...");
     setError("");
@@ -337,9 +330,8 @@ if (!token) {
       {
         method: "POST",
         headers: {
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${token}`,
-},
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
           riskScore,
           riskLevel,
@@ -352,7 +344,9 @@ if (!token) {
     const data = await response.json();
 
     if (!response.ok || !data.success) {
-      throw new Error(data.message || "Failed to activate SOS");
+      throw new Error(
+        data.message || "Failed to activate SOS"
+      );
     }
 
     setSosActive(true);
@@ -363,33 +357,25 @@ if (!token) {
 
     setStatus("Emergency SOS activated");
 
-    console.log("🚨 SOS backend event created:", data.event);
+    console.log(
+      "🚨 SOS backend event created:",
+      data.event
+    );
   } catch (error) {
     console.error("SOS activation error:", error);
-    setError(error.message || "Unable to activate SOS");
+
+    setError(
+      error.message || "Unable to activate SOS"
+    );
   }
 };
 
   const alertTrustedContact = async () => {
-    console.log("🔥🔥🔥 GUARDIAN BUTTON CLICKED 🔥🔥🔥");
+  console.log("🔥 GUARDIAN BUTTON CLICKED");
+
   try {
     if (countdownRef.current) {
       clearInterval(countdownRef.current);
-    }
-
-    const storedUser = localStorage.getItem("user");
-
-    if (!storedUser) {
-      setError("User session not found. Please login again.");
-      return;
-    }
-
-    const user = JSON.parse(storedUser);
-    const userId = user.id || user._id;
-
-    if (!userId) {
-      setError("User ID not found. Please login again.");
-      return;
     }
 
     setStatus("Alerting trusted contact...");
@@ -400,12 +386,9 @@ if (!token) {
       {
         method: "POST",
         headers: {
-  "Content-Type": "application/json",
-  Authorization: `Bearer ${localStorage.getItem("token")}`,
-},
-
+          "Content-Type": "application/json",
+        },
         body: JSON.stringify({
-          user: userId,
           riskScore,
           riskLevel,
           transcript,
@@ -421,8 +404,8 @@ if (!token) {
         data.message || "Failed to alert trusted contact"
       );
     }
-    setAlertedGuardian(data.guardian || null);
 
+    setAlertedGuardian(data.guardian || null);
     setGuardianAlerted(true);
     setSafePause(false);
     setWarning(false);
@@ -437,7 +420,10 @@ if (!token) {
     );
   } catch (error) {
     console.error("Guardian alert error:", error);
-    setError(error.message || "Unable to alert trusted contact");
+
+    setError(
+      error.message || "Unable to alert trusted contact"
+    );
   }
 };
 

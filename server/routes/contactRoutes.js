@@ -1,17 +1,38 @@
 const express = require("express");
 const mongoose = require("mongoose");
 const TrustedContact = require("../models/TrustedContact");
-const protect = require("../middleware/authMiddleware");
+const User = require("../models/User");
 
 const router = express.Router();
+
+// ======================================================
+// DEMO USER HELPER
+// ======================================================
+
+const getDemoUserId = async () => {
+  const demoUser = await User.findOne()
+    .select("_id")
+    .lean();
+
+  return demoUser?._id || null;
+};
 
 // ======================================================
 // ADD TRUSTED CONTACT
 // POST /api/contacts
 // ======================================================
 
-router.post("/", protect, async (req, res) => {
+router.post("/", async (req, res) => {
   try {
+    const user = await getDemoUserId();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No demo user found",
+      });
+    }
+
     const {
       name,
       phone,
@@ -34,17 +55,15 @@ router.post("/", protect, async (req, res) => {
       });
     }
 
-    // If this contact is primary, remove primary status
-    // from all other contacts belonging to this user.
     if (isPrimary) {
       await TrustedContact.updateMany(
-        { user: req.user.id },
+        { user },
         { $set: { isPrimary: false } }
       );
     }
 
     const contact = await TrustedContact.create({
-      user: req.user.id,
+      user,
       name: name.trim(),
       phone: phone.trim(),
       relationship,
@@ -73,10 +92,19 @@ router.post("/", protect, async (req, res) => {
 // GET /api/contacts
 // ======================================================
 
-router.get("/", protect, async (req, res) => {
+router.get("/", async (req, res) => {
   try {
+    const user = await getDemoUserId();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No demo user found",
+      });
+    }
+
     const contacts = await TrustedContact.find({
-      user: req.user.id,
+      user,
     }).sort({
       isPrimary: -1,
       priority: 1,
@@ -104,8 +132,17 @@ router.get("/", protect, async (req, res) => {
 // GET /api/contacts/:id
 // ======================================================
 
-router.get("/:id", protect, async (req, res) => {
+router.get("/:id", async (req, res) => {
   try {
+    const user = await getDemoUserId();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No demo user found",
+      });
+    }
+
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
         success: false,
@@ -115,7 +152,7 @@ router.get("/:id", protect, async (req, res) => {
 
     const contact = await TrustedContact.findOne({
       _id: req.params.id,
-      user: req.user.id,
+      user,
     });
 
     if (!contact) {
@@ -145,8 +182,17 @@ router.get("/:id", protect, async (req, res) => {
 // PUT /api/contacts/:id
 // ======================================================
 
-router.put("/:id", protect, async (req, res) => {
+router.put("/:id", async (req, res) => {
   try {
+    const user = await getDemoUserId();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No demo user found",
+      });
+    }
+
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
         success: false,
@@ -156,7 +202,7 @@ router.put("/:id", protect, async (req, res) => {
 
     const contact = await TrustedContact.findOne({
       _id: req.params.id,
-      user: req.user.id,
+      user,
     });
 
     if (!contact) {
@@ -208,7 +254,7 @@ router.put("/:id", protect, async (req, res) => {
       if (isPrimary === true) {
         await TrustedContact.updateMany(
           {
-            user: req.user.id,
+            user,
             _id: { $ne: contact._id },
           },
           {
@@ -245,8 +291,17 @@ router.put("/:id", protect, async (req, res) => {
 // PATCH /api/contacts/:id/primary
 // ======================================================
 
-router.patch("/:id/primary", protect, async (req, res) => {
+router.patch("/:id/primary", async (req, res) => {
   try {
+    const user = await getDemoUserId();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No demo user found",
+      });
+    }
+
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
         success: false,
@@ -256,7 +311,7 @@ router.patch("/:id/primary", protect, async (req, res) => {
 
     const contact = await TrustedContact.findOne({
       _id: req.params.id,
-      user: req.user.id,
+      user,
     });
 
     if (!contact) {
@@ -266,13 +321,11 @@ router.patch("/:id/primary", protect, async (req, res) => {
       });
     }
 
-    // Remove primary from all contacts
     await TrustedContact.updateMany(
-      { user: req.user.id },
+      { user },
       { $set: { isPrimary: false } }
     );
 
-    // Make selected contact primary
     contact.isPrimary = true;
     await contact.save();
 
@@ -297,8 +350,17 @@ router.patch("/:id/primary", protect, async (req, res) => {
 // DELETE /api/contacts/:id
 // ======================================================
 
-router.delete("/:id", protect, async (req, res) => {
+router.delete("/:id", async (req, res) => {
   try {
+    const user = await getDemoUserId();
+
+    if (!user) {
+      return res.status(404).json({
+        success: false,
+        message: "No demo user found",
+      });
+    }
+
     if (!mongoose.Types.ObjectId.isValid(req.params.id)) {
       return res.status(400).json({
         success: false,
@@ -308,7 +370,7 @@ router.delete("/:id", protect, async (req, res) => {
 
     const contact = await TrustedContact.findOneAndDelete({
       _id: req.params.id,
-      user: req.user.id,
+      user,
     });
 
     if (!contact) {

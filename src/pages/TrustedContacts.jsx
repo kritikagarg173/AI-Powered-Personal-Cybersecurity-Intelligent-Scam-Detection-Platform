@@ -18,9 +18,7 @@ const [error, setError] = useState("");
   const [showForm, setShowForm] = useState(false);
   const API_URL = `${API_BASE_URL}/contacts`;
 
-const getToken = () => {
-  return localStorage.getItem("token");
-};
+
 
   const [form, setForm] = useState({
     name: "",
@@ -33,17 +31,8 @@ const getToken = () => {
     setLoading(true);
     setError("");
 
-    const token = getToken();
-
-    if (!token) {
-      throw new Error("Login token not found. Please login again.");
-    }
-
     const response = await fetch(API_URL, {
       method: "GET",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
     });
 
     const data = await response.json();
@@ -94,17 +83,10 @@ useEffect(() => {
   try {
     setError("");
 
-    const token = getToken();
-
-    if (!token) {
-      throw new Error("Login token not found. Please login again.");
-    }
-
     const response = await fetch(API_URL, {
       method: "POST",
       headers: {
         "Content-Type": "application/json",
-        Authorization: `Bearer ${token}`,
       },
       body: JSON.stringify({
         name: form.name,
@@ -141,18 +123,11 @@ useEffect(() => {
   try {
     setError("");
 
-    const token = getToken();
-
-    if (!token) {
-      throw new Error("Login token not found. Please login again.");
-    }
+    
 
     const response = await fetch(`${API_URL}/${id}`, {
-      method: "DELETE",
-      headers: {
-        Authorization: `Bearer ${token}`,
-      },
-    });
+  method: "DELETE",
+});
 
     const data = await response.json();
 

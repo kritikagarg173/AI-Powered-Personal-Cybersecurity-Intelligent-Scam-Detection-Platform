@@ -27,6 +27,7 @@ const app = express();
 const allowedOrigins = [
   "http://localhost:5173",
   "http://localhost",
+  "https://localhost",
   "capacitor://localhost",
   "https://cyber-shield-mobile.vercel.app",
 ];

@@ -1,3 +1,5 @@
+import { Capacitor } from "@capacitor/core";
+import { SpeechRecognition } from "@capacitor-community/speech-recognition";
 import { useEffect, useRef, useState } from "react";
 import {
   PhoneCall,
@@ -20,6 +22,12 @@ import {
   BellRing,
 } from "lucide-react";
 import { API_BASE_URL } from "../services/apiConfig";
+import {
+  initializeProtectedCalling,
+  acceptProtectedCall,
+  rejectProtectedCall,
+  endProtectedCall,
+} from "../services/protectedCallService";
 
 function LiveCallMonitoring() {
   const [monitoring, setMonitoring] = useState(false);
@@ -30,6 +38,12 @@ function LiveCallMonitoring() {
   const [detectedSignals, setDetectedSignals] = useState([]);
   const [warning, setWarning] = useState(false);
   const [sosActive, setSosActive] = useState(false);
+  const [incomingProtectedCall, setIncomingProtectedCall] = useState(false);
+const [protectedCallerId, setProtectedCallerId] = useState("");
+const [myProtectedCallId, setMyProtectedCallId] = useState("");
+const [protectedCallActive, setProtectedCallActive] = useState(false);
+const [protectedRemoteStream, setProtectedRemoteStream] = useState(null);
+
   const [status, setStatus] = useState("Ready to protect");
   const [error, setError] = useState("");
 
@@ -40,6 +54,62 @@ function LiveCallMonitoring() {
 const [alertedGuardian, setAlertedGuardian] = useState(null);
   const recognitionRef = useRef(null);
   const countdownRef = useRef(null);
+  // PROTECTED CALL INITIALIZATION
+useEffect(() => {
+  const deviceId =
+    localStorage.getItem("cyber_protected_call_id") ||
+    `cyber-${Math.random().toString(36).substring(2, 9)}`;
+
+  localStorage.setItem(
+    "cyber_protected_call_id",
+    deviceId
+  );
+  setMyProtectedCallId(deviceId);
+
+  initializeProtectedCalling(
+    deviceId,
+    (callerId) => {
+      console.log("Incoming Protected Call:", callerId);
+
+      setProtectedCallerId(callerId);
+      setIncomingProtectedCall(true);
+      setStatus("Incoming Protected Call detected");
+    }
+  );
+}, []);
+// ACCEPT PROTECTED CALL
+const handleAcceptProtectedCall = async () => {
+  try {
+    setIncomingProtectedCall(false);
+    setStatus("Connecting Protected Call...");
+
+    await acceptProtectedCall((remoteStream) => {
+      setProtectedRemoteStream(remoteStream);
+      setProtectedCallActive(true);
+
+      setStatus("Protected Call connected — AI Protection active");
+
+      // Start existing AI monitoring automatically
+      if (!monitoring) {
+        startMonitoring();
+      }
+    });
+  } catch (err) {
+    console.error("Protected Call accept error:", err);
+    setError("Unable to accept Protected Call");
+  }
+};
+
+// REJECT PROTECTED CALL
+const handleRejectProtectedCall = () => {
+  rejectProtectedCall();
+
+  setIncomingProtectedCall(false);
+  setProtectedCallerId("");
+  setProtectedCallActive(false);
+
+  setStatus("Protected Call declined");
+};
 
   const suspiciousPatterns = [
     {
@@ -149,19 +219,100 @@ const [alertedGuardian, setAlertedGuardian] = useState(null);
     setError(error.message || "Unable to analyze conversation");
   }
 };
-  const startRecognition = () => {
-    const SpeechRecognition =
+  const startRecognition = async () => {
+  try {
+    // ==========================================
+    // ANDROID NATIVE SPEECH RECOGNITION
+    // ==========================================
+    if (Capacitor.isNativePlatform()) {
+      setError("");
+      setStatus("Requesting microphone permission...");
+
+      const permission =
+        await SpeechRecognition.requestPermissions();
+
+      if (permission.speechRecognition !== "granted") {
+        setError(
+          "Microphone permission was denied. Please allow microphone access."
+        );
+        setListening(false);
+        return;
+      }
+
+      const available =
+        await SpeechRecognition.available();
+
+      if (!available.available) {
+        setError(
+          "Speech recognition is not available on this device."
+        );
+        setListening(false);
+        return;
+      }
+
+      // Remove old listener before adding a new one
+      await SpeechRecognition.removeAllListeners();
+
+      
+        await SpeechRecognition.addListener(
+  "partialResults",
+  (data) => {
+    if (!data.matches || data.matches.length === 0) {
+      return;
+    }
+
+    const spokenText = data.matches[0]?.trim();
+
+    if (!spokenText) {
+      return;
+    }
+
+    // Show detected speech immediately
+    setTranscript(spokenText);
+
+    // Analyze every recognized phrase
+    analyzeSpeech(spokenText);
+  }
+);
+
+      await SpeechRecognition.addListener(
+        "listeningState",
+        (data) => {
+          setListening(data.status === "started");
+        }
+      );
+
+      setListening(true);
+      setStatus("AI is listening...");
+
+      await SpeechRecognition.start({
+        language: "en-IN",
+        maxResults: 5,
+        prompt: "Cyber Shield AI is listening",
+        partialResults: true,
+        popup: false,
+      });
+
+      return;
+    }
+
+    // ==========================================
+    // WEB BROWSER SPEECH RECOGNITION
+    // ==========================================
+
+    const BrowserSpeechRecognition =
       window.SpeechRecognition ||
       window.webkitSpeechRecognition;
 
-    if (!SpeechRecognition) {
+    if (!BrowserSpeechRecognition) {
       setError(
         "Speech recognition is not supported in this browser. Please use Google Chrome."
       );
       return;
     }
 
-    const recognition = new SpeechRecognition();
+    const recognition =
+      new BrowserSpeechRecognition();
 
     recognition.continuous = true;
     recognition.interimResults = true;
@@ -175,49 +326,45 @@ const [alertedGuardian, setAlertedGuardian] = useState(null);
 
     recognition.onresult = (event) => {
       let finalText = "";
-      let interimText = "";
 
       for (
         let i = event.resultIndex;
         i < event.results.length;
         i++
       ) {
-        const text = event.results[i][0].transcript;
+        const text =
+          event.results[i][0].transcript;
 
         if (event.results[i].isFinal) {
-          finalText += text + " ";
-        } else {
-          interimText += text;
+          finalText += `${text} `;
         }
       }
 
-     if (finalText) {
-  setTranscript((current) => {
-    const updated = `${current} ${finalText}`.trim();
+      if (finalText.trim()) {
+        setTranscript((current) => {
+          const updated =
+            `${current} ${finalText}`.trim();
 
-    analyzeSpeech(updated);
+          analyzeSpeech(updated);
 
-    return updated;
-  });
-}
-
-      if (finalText) {
-  setTranscript((current) => {
-    const updated = `${current} ${finalText}`.trim();
-
-    analyzeSpeech(updated);
-
-    return updated;
-  });
-}
+          return updated;
+        });
+      }
     };
 
     recognition.onerror = (event) => {
-      console.log("Speech recognition error:", event.error);
+      console.error(
+        "Speech recognition error:",
+        event.error
+      );
 
       if (event.error === "not-allowed") {
         setError(
           "Microphone permission was denied. Please allow microphone access."
+        );
+      } else {
+        setError(
+          `Speech recognition error: ${event.error}`
         );
       }
 
@@ -226,24 +373,58 @@ const [alertedGuardian, setAlertedGuardian] = useState(null);
 
     recognition.onend = () => {
       setListening(false);
-
-      if (monitoring && !sosActive && !safePause) {
-        setStatus("Monitoring active");
-      }
     };
 
     recognitionRef.current = recognition;
-    recognition.start();
-  };
 
-  const stopRecognition = () => {
+    recognition.start();
+  } catch (error) {
+    console.error(
+      "Start speech recognition error:",
+      error
+    );
+
+    setListening(false);
+
+    setError(
+      error?.message ||
+        "Unable to start microphone / speech recognition."
+    );
+  }
+};
+
+  const stopRecognition = async () => {
+  try {
+    // ANDROID NATIVE
+    if (Capacitor.isNativePlatform()) {
+      try {
+        await SpeechRecognition.stop();
+      } catch (error) {
+        console.log("Native speech stop warning:", error);
+      }
+
+      try {
+        await SpeechRecognition.removeAllListeners();
+      } catch (error) {
+        console.log("Listener cleanup warning:", error);
+      }
+
+      setListening(false);
+      return;
+    }
+
+    // WEB
     if (recognitionRef.current) {
       recognitionRef.current.stop();
       recognitionRef.current = null;
     }
 
     setListening(false);
-  };
+  } catch (error) {
+    console.error("Stop speech recognition error:", error);
+    setListening(false);
+  }
+};
 
   const startMonitoring = () => {
     setMonitoring(true);
@@ -263,6 +444,13 @@ const [alertedGuardian, setAlertedGuardian] = useState(null);
       startRecognition();
     }, 500);
   };
+  const simulateScamCall = () => {
+  const demoText =
+    "This is urgent. Tell me your OTP and UPI PIN and transfer money immediately.";
+
+  setTranscript(demoText);
+  analyzeSpeech(demoText);
+};
 
   const stopMonitoring = () => {
     stopRecognition();
@@ -295,10 +483,20 @@ const [alertedGuardian, setAlertedGuardian] = useState(null);
       seconds -= 1;
       setCountdown(seconds);
 
-      if (seconds <= 0) {
-        clearInterval(countdownRef.current);
-        setStatus("Safety pause complete");
-      }
+      
+        if (seconds <= 0) {
+  clearInterval(countdownRef.current);
+
+  setStatus("Critical fraud detected — activating emergency protection...");
+
+  // Automatically activate SOS
+  activateSOS();
+
+  // Automatically alert trusted contact / sister
+  setTimeout(() => {
+    alertTrustedContact();
+  }, 800);
+}
     }, 1000);
   };
 
@@ -441,6 +639,21 @@ const [alertedGuardian, setAlertedGuardian] = useState(null);
 
     setStatus("Call monitoring ended");
   };
+  useEffect(() => {
+  const shouldAutoStart =
+    localStorage.getItem("cyber_auto_start_monitoring");
+
+  if (shouldAutoStart === "true") {
+    // Remove immediately so normal page visits don't auto-start again
+    localStorage.removeItem("cyber_auto_start_monitoring");
+
+    setStatus("Incoming call detected — starting AI protection...");
+
+    setTimeout(() => {
+      startMonitoring();
+    }, 700);
+  }
+}, []);
 
   useEffect(() => {
     return () => {
@@ -470,6 +683,56 @@ const [alertedGuardian, setAlertedGuardian] = useState(null);
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
+      {/* INCOMING PROTECTED CALL POPUP */}
+{incomingProtectedCall && (
+  <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4">
+    <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
+
+      <div className="mb-4 flex items-center gap-3">
+        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-700">
+          <PhoneCall size={22} />
+        </div>
+
+        <div>
+          <h2 className="text-lg font-bold text-gray-900">
+            Incoming Protected Call
+          </h2>
+
+          <p className="text-sm text-gray-500">
+            {protectedCallerId || "Unknown Protected Caller"}
+          </p>
+        </div>
+      </div>
+
+      <div className="mb-5 rounded-xl bg-blue-50 p-3">
+        <p className="text-sm font-medium text-blue-900">
+          Enable AI Protection for this call?
+        </p>
+
+        <p className="mt-1 text-xs text-blue-700">
+          Cyber Shield will analyze the protected call for fraud signals.
+        </p>
+      </div>
+
+      <div className="grid grid-cols-2 gap-3">
+        <button
+          onClick={handleRejectProtectedCall}
+          className="rounded-xl bg-gray-100 px-4 py-3 text-sm font-bold text-gray-700"
+        >
+          NO
+        </button>
+
+        <button
+          onClick={handleAcceptProtectedCall}
+          className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white"
+        >
+          YES
+        </button>
+      </div>
+
+    </div>
+  </div>
+)}
 
       {/* HEADER */}
       <section>
@@ -491,6 +754,28 @@ const [alertedGuardian, setAlertedGuardian] = useState(null);
           AI analyzes conversation signals to detect potential phone scams.
         </p>
       </section>
+      {/* PROTECTED CALL ID */}
+<section className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
+  <div className="flex items-center gap-3">
+    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white">
+      <ShieldCheck size={18} />
+    </div>
+
+    <div>
+      <p className="text-xs font-bold uppercase tracking-wide text-blue-600">
+        Protected Call ID
+      </p>
+
+      <p className="font-mono text-sm font-bold text-gray-900">
+        {myProtectedCallId || "Connecting..."}
+      </p>
+
+      <p className="mt-1 text-xs text-gray-500">
+        Use this ID to receive a Cyber Shield Protected Call.
+      </p>
+    </div>
+  </div>
+</section>
 
       {/* MAIN STATUS */}
       <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-800 to-slate-900 p-6 text-white shadow-xl">
@@ -540,6 +825,15 @@ const [alertedGuardian, setAlertedGuardian] = useState(null);
               Stop Monitoring
             </button>
           )}
+          {monitoring && (
+  <button
+    onClick={simulateScamCall}
+    className="flex items-center justify-center gap-2 rounded-xl bg-red-600 px-4 py-3 text-[10px] font-bold text-white shadow-lg hover:bg-red-700"
+  >
+    <Siren size={15} />
+    Simulate Scam Call
+  </button>
+)}
 
         </div>
       </section>

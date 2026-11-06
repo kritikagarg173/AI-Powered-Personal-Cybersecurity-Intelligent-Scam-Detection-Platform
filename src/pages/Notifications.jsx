@@ -24,53 +24,52 @@ function Notifications() {
   // FETCH NOTIFICATIONS
   // ======================================================
 
-  const fetchNotifications = async () => {
-    try {
-      setLoading(true);
-      setError("");
 
-      const token = localStorage.getItem("token");
+const fetchNotifications = async () => {
+  try {
+    setLoading(true);
+    setError("");
 
-      if (!token) {
-        throw new Error("Login token not found. Please login again.");
-      }
+    const token = localStorage.getItem("token");
 
-      const response = await fetch(
-        `${API_BASE_URL}/notifications`,
-        {
-          method: "GET",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
-      const data = await response.json();
-
-      if (!response.ok || !data.success) {
-        throw new Error(
-          data.message || "Failed to load notifications"
-        );
-      }
-
-      const formatted = data.notifications.map((item) => ({
-        id: item._id,
-        type: item.type,
-        title: item.title,
-        message: item.message,
-        unread: item.unread,
-        source: item.source,
-        createdAt: item.createdAt,
-      }));
-
-      setNotifications(formatted);
-    } catch (error) {
-      console.error("Fetch notifications error:", error);
-      setError(error.message);
-    } finally {
-      setLoading(false);
+    // No login token: show the empty state without an error.
+    if (!token) {
+      setNotifications([]);
+      return;
     }
-  };
+
+    const response = await fetch(`${API_BASE_URL}/notifications`, {
+      method: "GET",
+      headers: {
+        Authorization: `Bearer ${token}`,
+      },
+    });
+
+    const data = await response.json();
+
+    if (!response.ok || !data.success) {
+      throw new Error(data.message || "Failed to load notifications");
+    }
+
+    const formatted = (data.notifications || []).map((item) => ({
+      id: item._id,
+      type: item.type,
+      title: item.title,
+      message: item.message,
+      unread: item.unread,
+      source: item.source,
+      createdAt: item.createdAt,
+    }));
+
+    setNotifications(formatted);
+  } catch (error) {
+    console.error("Fetch notifications error:", error);
+    setError(error.message || "Failed to load notifications");
+  } finally {
+    setLoading(false);
+  }
+};
+
 
   useEffect(() => {
     fetchNotifications();
@@ -157,15 +156,14 @@ function Notifications() {
       }
 
       const response = await fetch(
-        "${API_BASE_URL}/notifications/read-all",
-        {
-          method: "PATCH",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
-
+  `${API_BASE_URL}/notifications/read-all`,
+  {
+    method: "PATCH",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }
+);
       const data = await response.json();
 
       if (!response.ok || !data.success) {
@@ -204,14 +202,14 @@ function Notifications() {
       }
 
       const response = await fetch(
-        "${API_BASE_URL}/notifications",
-        {
-          method: "DELETE",
-          headers: {
-            Authorization: `Bearer ${token}`,
-          },
-        }
-      );
+  `${API_BASE_URL}/notifications`,
+  {
+    method: "DELETE",
+    headers: {
+      Authorization: `Bearer ${token}`,
+    },
+  }
+);
 
       const data = await response.json();
 

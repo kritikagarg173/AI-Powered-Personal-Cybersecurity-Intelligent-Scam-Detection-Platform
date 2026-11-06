@@ -1,3 +1,6 @@
+
+import { Capacitor } from "@capacitor/core";
+import { SpeechRecognition } from "@capacitor-community/speech-recognition";
 import { useState } from "react";
 import {
   Mic,
@@ -14,12 +17,103 @@ function VoiceSafetyAssistant({
   const [lastCommand, setLastCommand] =
     useState("");
 
-  const startListening = () => {
-    const SpeechRecognition =
+  const startListening = async () => {
+  try {
+    // ==========================================
+    // ANDROID APP - NATIVE SPEECH RECOGNITION
+    // ==========================================
+    if (Capacitor.isNativePlatform()) {
+      const permission =
+        await SpeechRecognition.requestPermissions();
+
+      if (permission.speechRecognition !== "granted") {
+        alert(
+          "Microphone permission is required for Voice Safety Assistant."
+        );
+        setListening(false);
+        return;
+      }
+
+      const available =
+        await SpeechRecognition.available();
+
+      if (!available.available) {
+        alert(
+          "Speech recognition is not available on this device."
+        );
+        setListening(false);
+        return;
+      }
+
+      await SpeechRecognition.removeAllListeners();
+
+      let commandHandled = false;
+
+      await SpeechRecognition.addListener(
+        "partialResults",
+        async (data) => {
+          if (
+            commandHandled ||
+            !data.matches ||
+            data.matches.length === 0
+          ) {
+            return;
+          }
+
+          const command = data.matches[0]
+            ?.toLowerCase()
+            .trim();
+
+          if (!command) return;
+
+          commandHandled = true;
+
+          setLastCommand(command);
+          setListening(false);
+
+          // Run existing Elderly Mode voice command
+          handleVoiceCommand(command);
+
+          try {
+            await SpeechRecognition.stop();
+            await SpeechRecognition.removeAllListeners();
+          } catch (error) {
+            console.log(
+              "Voice assistant cleanup:",
+              error
+            );
+          }
+        }
+      );
+
+      await SpeechRecognition.addListener(
+        "listeningState",
+        (data) => {
+          setListening(data.status === "started");
+        }
+      );
+
+      setListening(true);
+
+      await SpeechRecognition.start({
+        language: "en-IN",
+        maxResults: 5,
+        partialResults: true,
+        popup: false,
+        prompt: "Say a safety command",
+      });
+
+      return;
+    }
+
+    // ==========================================
+    // NORMAL WEB BROWSER
+    // ==========================================
+    const BrowserSpeechRecognition =
       window.SpeechRecognition ||
       window.webkitSpeechRecognition;
 
-    if (!SpeechRecognition) {
+    if (!BrowserSpeechRecognition) {
       alert(
         "Voice commands are not supported in this browser."
       );
@@ -27,14 +121,11 @@ function VoiceSafetyAssistant({
     }
 
     const recognition =
-      new SpeechRecognition();
+      new BrowserSpeechRecognition();
 
     recognition.lang = "en-IN";
-
     recognition.continuous = false;
-
-    recognition.interimResults =
-      false;
+    recognition.interimResults = false;
 
     recognition.onstart = () => {
       setListening(true);
@@ -44,13 +135,16 @@ function VoiceSafetyAssistant({
       setListening(false);
     };
 
-    recognition.onerror = () => {
+    recognition.onerror = (event) => {
+      console.error(
+        "Voice recognition error:",
+        event.error
+      );
+
       setListening(false);
     };
 
-    recognition.onresult = (
-      event
-    ) => {
+    recognition.onresult = (event) => {
       const command =
         event.results[0][0].transcript
           .toLowerCase()
@@ -62,8 +156,20 @@ function VoiceSafetyAssistant({
     };
 
     recognition.start();
-  };
+  } catch (error) {
+    console.error(
+      "Voice Safety Assistant Error:",
+      error
+    );
 
+    setListening(false);
+
+    alert(
+      error?.message ||
+        "Unable to start Voice Safety Assistant."
+    );
+  }
+};
 
   const handleVoiceCommand = (
     command

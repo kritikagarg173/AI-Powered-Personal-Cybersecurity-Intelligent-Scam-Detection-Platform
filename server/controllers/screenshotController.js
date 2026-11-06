@@ -1,6 +1,8 @@
+const cloudinary = require("../config/cloudinary");
 const fs = require("fs");
 const User = require("../models/User");
 const SecurityEvent = require("../models/SecurityEvent");
+const Notification = require("../models/Notification");
 
 const analyzeScreenshot = async (req, res) => {
   let uploadedFilePath = null;
@@ -303,6 +305,27 @@ recommendation should tell the user what they should do next.
       "CS-" +
       Math.floor(1000 + Math.random() * 9000);
 
+      
+if (
+  !process.env.CLOUDINARY_CLOUD_NAME ||
+  !process.env.CLOUDINARY_API_KEY ||
+  !process.env.CLOUDINARY_API_SECRET
+) {
+  throw new Error(
+    "Cloudinary configuration is missing. Check server environment variables."
+  );
+}
+
+const cloudAsset = await cloudinary.uploader.upload(uploadedFilePath, {
+  resource_type: "image",
+  type: "authenticated",
+  folder: "cyber-shield/evidence",
+  public_id: `${evidenceId}-${Date.now()}`,
+  overwrite: false,
+});
+
+
+
     // ==========================================
     // CREATE SECURITY EVENT
     // ==========================================
@@ -350,10 +373,44 @@ recommendation should tell the user what they should do next.
         explanation,
 
         recommendation,
+        
+cloudinaryAssetId: cloudAsset.asset_id,
+cloudinaryPublicId: cloudAsset.public_id,
+cloudinaryDeliveryType: cloudAsset.type,
+cloudinaryFormat: cloudAsset.format,
+cloudinaryBytes: cloudAsset.bytes,
+cloudinaryVersion: cloudAsset.version,
+
 
         analyzedBy: "Gemini AI",
       },
     });
+
+    // ==========================================
+// CREATE NOTIFICATION
+// ==========================================
+
+const isThreat = riskScore >= 60;
+
+await Notification.create({
+  user: user._id,
+
+  type: isThreat ? "threat" : "protection",
+
+  title: isThreat
+    ? "Suspicious Screenshot Detected"
+    : "Screenshot Analysis Completed",
+
+  message: isThreat
+    ? `Cyber Shield detected a potentially suspicious screenshot. Risk level: ${riskLevel}. ${recommendation}`
+    : `Screenshot analysis completed. Risk level: ${riskLevel}. ${explanation}`,
+
+  unread: true,
+
+  source: "SCREENSHOT_ANALYSIS",
+
+  securityEvent: event._id,
+});
 
     // ==========================================
     // SUCCESS RESPONSE

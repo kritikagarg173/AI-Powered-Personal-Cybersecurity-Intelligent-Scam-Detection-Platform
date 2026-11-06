@@ -125,6 +125,7 @@ function Sidebar({ mobileOpen, setMobileOpen }) {
   };
 }, []);
   const handleNavigation = (itemName) => {
+    setMobileOpen(false);
   if (itemName === "Dashboard") {
     navigate("/");
   }

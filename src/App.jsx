@@ -16,7 +16,7 @@ import Profile from "./pages/Profile";
 import Settings from "./pages/Settings";
 import Support from "./pages/Support";
 import AIAssistant from "./pages/AIAssistant";
-import ProtectedCaller from "./pages/ProtectedCaller";
+
 
 
 function App() {
@@ -95,10 +95,6 @@ function App() {
 <Route
   path="/ai-assistant"
   element={<AIAssistant />}
-/>
-<Route
-  path="/protected-call"
-  element={<ProtectedCaller />}
 />
 
             </Routes>

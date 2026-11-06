@@ -22,12 +22,7 @@ import {
   BellRing,
 } from "lucide-react";
 import { API_BASE_URL } from "../services/apiConfig";
-import {
-  initializeProtectedCalling,
-  acceptProtectedCall,
-  rejectProtectedCall,
-  endProtectedCall,
-} from "../services/protectedCallService";
+
 
 function LiveCallMonitoring() {
   const [monitoring, setMonitoring] = useState(false);
@@ -38,12 +33,6 @@ function LiveCallMonitoring() {
   const [detectedSignals, setDetectedSignals] = useState([]);
   const [warning, setWarning] = useState(false);
   const [sosActive, setSosActive] = useState(false);
-  const [incomingProtectedCall, setIncomingProtectedCall] = useState(false);
-const [protectedCallerId, setProtectedCallerId] = useState("");
-const [myProtectedCallId, setMyProtectedCallId] = useState("");
-const [protectedCallActive, setProtectedCallActive] = useState(false);
-const [protectedRemoteStream, setProtectedRemoteStream] = useState(null);
-
   const [status, setStatus] = useState("Ready to protect");
   const [error, setError] = useState("");
 
@@ -54,63 +43,6 @@ const [protectedRemoteStream, setProtectedRemoteStream] = useState(null);
 const [alertedGuardian, setAlertedGuardian] = useState(null);
   const recognitionRef = useRef(null);
   const countdownRef = useRef(null);
-  // PROTECTED CALL INITIALIZATION
-useEffect(() => {
-  const deviceId =
-    localStorage.getItem("cyber_protected_call_id") ||
-    `cyber-${Math.random().toString(36).substring(2, 9)}`;
-
-  localStorage.setItem(
-    "cyber_protected_call_id",
-    deviceId
-  );
-  setMyProtectedCallId(deviceId);
-
-  initializeProtectedCalling(
-    deviceId,
-    (callerId) => {
-      console.log("Incoming Protected Call:", callerId);
-
-      setProtectedCallerId(callerId);
-      setIncomingProtectedCall(true);
-      setStatus("Incoming Protected Call detected");
-    }
-  );
-}, []);
-// ACCEPT PROTECTED CALL
-const handleAcceptProtectedCall = async () => {
-  try {
-    setIncomingProtectedCall(false);
-    setStatus("Connecting Protected Call...");
-
-    await acceptProtectedCall((remoteStream) => {
-      setProtectedRemoteStream(remoteStream);
-      setProtectedCallActive(true);
-
-      setStatus("Protected Call connected — AI Protection active");
-
-      // Start existing AI monitoring automatically
-      if (!monitoring) {
-        startMonitoring();
-      }
-    });
-  } catch (err) {
-    console.error("Protected Call accept error:", err);
-    setError("Unable to accept Protected Call");
-  }
-};
-
-// REJECT PROTECTED CALL
-const handleRejectProtectedCall = () => {
-  rejectProtectedCall();
-
-  setIncomingProtectedCall(false);
-  setProtectedCallerId("");
-  setProtectedCallActive(false);
-
-  setStatus("Protected Call declined");
-};
-
   const suspiciousPatterns = [
     {
       words: ["otp", "one time password", "verification code"],
@@ -683,56 +615,7 @@ const handleRejectProtectedCall = () => {
 
   return (
     <div className="mx-auto max-w-7xl space-y-6">
-      {/* INCOMING PROTECTED CALL POPUP */}
-{incomingProtectedCall && (
-  <div className="fixed inset-0 z-50 flex items-end justify-center bg-black/40 p-4">
-    <div className="w-full max-w-md rounded-3xl bg-white p-6 shadow-2xl">
-
-      <div className="mb-4 flex items-center gap-3">
-        <div className="flex h-12 w-12 items-center justify-center rounded-full bg-blue-100 text-blue-700">
-          <PhoneCall size={22} />
-        </div>
-
-        <div>
-          <h2 className="text-lg font-bold text-gray-900">
-            Incoming Protected Call
-          </h2>
-
-          <p className="text-sm text-gray-500">
-            {protectedCallerId || "Unknown Protected Caller"}
-          </p>
-        </div>
-      </div>
-
-      <div className="mb-5 rounded-xl bg-blue-50 p-3">
-        <p className="text-sm font-medium text-blue-900">
-          Enable AI Protection for this call?
-        </p>
-
-        <p className="mt-1 text-xs text-blue-700">
-          Cyber Shield will analyze the protected call for fraud signals.
-        </p>
-      </div>
-
-      <div className="grid grid-cols-2 gap-3">
-        <button
-          onClick={handleRejectProtectedCall}
-          className="rounded-xl bg-gray-100 px-4 py-3 text-sm font-bold text-gray-700"
-        >
-          NO
-        </button>
-
-        <button
-          onClick={handleAcceptProtectedCall}
-          className="rounded-xl bg-blue-600 px-4 py-3 text-sm font-bold text-white"
-        >
-          YES
-        </button>
-      </div>
-
-    </div>
-  </div>
-)}
+     
 
       {/* HEADER */}
       <section>
@@ -754,28 +637,7 @@ const handleRejectProtectedCall = () => {
           AI analyzes conversation signals to detect potential phone scams.
         </p>
       </section>
-      {/* PROTECTED CALL ID */}
-<section className="rounded-2xl border border-blue-100 bg-blue-50 p-4">
-  <div className="flex items-center gap-3">
-    <div className="flex h-10 w-10 items-center justify-center rounded-xl bg-blue-600 text-white">
-      <ShieldCheck size={18} />
-    </div>
-
-    <div>
-      <p className="text-xs font-bold uppercase tracking-wide text-blue-600">
-        Protected Call ID
-      </p>
-
-      <p className="font-mono text-sm font-bold text-gray-900">
-        {myProtectedCallId || "Connecting..."}
-      </p>
-
-      <p className="mt-1 text-xs text-gray-500">
-        Use this ID to receive a Cyber Shield Protected Call.
-      </p>
-    </div>
-  </div>
-</section>
+      
 
       {/* MAIN STATUS */}
       <section className="overflow-hidden rounded-3xl bg-gradient-to-br from-blue-700 via-blue-800 to-slate-900 p-6 text-white shadow-xl">
